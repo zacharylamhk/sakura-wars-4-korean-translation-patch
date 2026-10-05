@@ -1,0 +1,2 @@
+python pack_gdi.py --gdi "C:\Users\Zachary Lam\SynologyDrive\Project\SakuraTaisen4Cht\sakura-wars-4-korean-translation-patch-main\original_gdi\Sakura Taisen 4 - Koi Seyo Otome v1.003 (2002)(Sega)(JP)[!][2M1, 2M3, 2M5, 2MM1].gdi" --patch output --dest gdi_out
+pause

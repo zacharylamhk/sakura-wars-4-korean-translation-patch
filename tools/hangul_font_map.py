@@ -17,7 +17,21 @@ FONT_CONFIGS = [
 # 사용자 컴퓨터에 어떤 폰트가 깔려있든 상관없도록, 필요한 한글
 # 음절 글자만 추려낸 폰트 파일을 tools/ 폴더 안에 함께 넣어서 사용
 FONT_PATH = os.path.join(SCRIPT_DIR, "NotoSansKR-subset.ttf")
+FONT_TTC_INDEX = 0
 MAP_FILE = os.path.join(SCRIPT_DIR, "hangul_map.json")
+
+
+def set_map_file(path):
+    """번역 언어별로 다른 타일 매핑 파일을 쓰게 한다 (한글/번체 혼용 방지)."""
+    global MAP_FILE
+    MAP_FILE = path
+
+
+def set_font_path(path, ttc_index=0):
+    """타일 렌더에 쓸 폰트. TTC면 ttc_index로 얼굴을 고른다."""
+    global FONT_PATH, FONT_TTC_INDEX
+    FONT_PATH = path
+    FONT_TTC_INDEX = ttc_index
 
 KANJI_START_TILE = 492          # 0x28998 / 338 (모든 폰트 파일 공통)
 KANJI_BASE_KUTEN = 1410         # 0x889F 의 ku-ten 순번
@@ -103,21 +117,34 @@ def _kanji_to_tile(ch):
 
 BLOCKED_TILES = set(t for t in (_kanji_to_tile(c) for c in BLOCKED_KANJI) if t is not None)
 
+def _needs_custom_tile(ch):
+    """한글·공백 타일 외에, Shift-JIS(cp932)로 넣을 수 없는 글자
+    (번체 전용 한자 등)도 빈 한자 타일을 빌려야 한다."""
+    if ('가' <= ch <= '힣') or ('ㄱ' <= ch <= 'ㆎ'):
+        return True
+    if ch == ' ' and SPACE_MODE == 'tile':
+        return True
+    if ch == BLANK_PAD_CHAR:
+        return True
+    try:
+        ch.encode('cp932')
+        return False
+    except UnicodeEncodeError:
+        return ch not in PUNCT_SUBSTITUTES
+
+
 def assign_tiles(text, mapping):
     used = set(int(v) for v in mapping.values())
     next_tile = (max(used) + 1) if used else KANJI_START_TILE
     for ch in text:
-        # 완성형 한글 음절(가,나,다...) + 단독 자모(ㅋ,ㅠ,ㅡ 등 강조/이모티콘용)
-        is_hangul = ('가' <= ch <= '힣') or ('ㄱ' <= ch <= 'ㆎ')
-        is_space = ch == ' ' and SPACE_MODE == 'tile'
-        is_pad = ch == BLANK_PAD_CHAR
-        if (is_hangul or is_space or is_pad) and ch not in mapping:
-            while next_tile in BLOCKED_TILES:
-                next_tile += 1
-            if next_tile >= KANJI_START_TILE + MAX_KANJI_TILES:
-                raise SystemExit("배정 가능한 타일이 부족합니다 (최대 2996자)")
-            mapping[ch] = next_tile
+        if ch in mapping or not _needs_custom_tile(ch):
+            continue
+        while next_tile in BLOCKED_TILES:
             next_tile += 1
+        if next_tile >= KANJI_START_TILE + MAX_KANJI_TILES:
+            raise SystemExit("배정 가능한 타일이 부족합니다 (최대 2996자)")
+        mapping[ch] = next_tile
+        next_tile += 1
     return mapping
 
 # 인코딩 안 되는 서양식 문장부호 -> 일본어(JIS)에 실제로 있는 비슷한 문자로 자동 치환
@@ -264,7 +291,7 @@ def render_hangul_tile(ch, size, font_size=None):
     from PIL import Image, ImageDraw, ImageFont
     if font_size is None:
         font_size = int(size * 0.85)
-    font = ImageFont.truetype(FONT_PATH, font_size)
+    font = ImageFont.truetype(FONT_PATH, font_size, index=FONT_TTC_INDEX)
     img = Image.new('L', (size, size), 0)
     draw = ImageDraw.Draw(img)
 
