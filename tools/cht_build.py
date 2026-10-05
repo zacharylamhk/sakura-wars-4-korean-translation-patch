@@ -1,7 +1,7 @@
 """번체 중국어 번역 결과를 translation_templates_cht/ 에 조립한다.
 
   python tools/cht_build.py refs    p2 청크에 참고 SCRIPT 원문/번역을 채운다 (p1 번역 후 실행)
-  python tools/cht_build.py build   translation_templates_cht/ADVDATA/SCRIPT, LIPSYNC 생성
+  python tools/cht_build.py slg     translation_templates_cht/SLG 생성
 
 LIPSYNC 줄의 원문이 SCRIPT와 같으면(또는 문장부호만 다르면) SCRIPT 번역을 그대로 쓴다.
 """
@@ -93,7 +93,47 @@ def cmd_build():
         print('  ', where, text)
 
 
+def cmd_build_slg():
+    alias = load_json('slg_alias.json')
+    units = load_json('slg_units.json')
+    trans = load_translations()
+    src_uid = {u['src']: uid for uid, u in units.items()}
+    missing = []
+    slg_src = os.path.join(cg.BASE, 'translation_templates', 'SLG')
+    slg_out = os.path.join(OUT_ROOT, 'SLG')
+
+    def translate(text, where):
+        if not JP.search(text):
+            return text
+        if text in alias:
+            return alias[text]
+        uid = src_uid.get(text)
+        if uid and uid in trans:
+            return trans[uid]
+        missing.append((where, text))
+        return text
+
+    for dp, _, fn in os.walk(slg_src):
+        for name in sorted(fn):
+            if not name.endswith('.txt'):
+                continue
+            src_path = os.path.join(dp, name)
+            rel = os.path.relpath(src_path, slg_src)
+            f = cg.TemplateFile(src_path)
+            for idx in sorted(f.texts):
+                f.set(idx, translate(f.texts[idx], f'{rel}[{idx:04d}]'))
+            out_path = os.path.join(slg_out, rel)
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            f.path = out_path
+            f.save()
+            print(f'寫入 {os.path.relpath(out_path, cg.BASE)}')
+    print(f'未翻譯（保留日文）: {len(missing)} 行')
+    for where, text in missing[:30]:
+        print('  ', where, text)
+
+
 if __name__ == '__main__':
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')
-    {'refs': cmd_refs, 'build': cmd_build}[sys.argv[1] if len(sys.argv) > 1 else 'build']()
+    cmd = sys.argv[1] if len(sys.argv) > 1 else 'build'
+    {'refs': cmd_refs, 'build': cmd_build, 'slg': cmd_build_slg}[cmd]()
