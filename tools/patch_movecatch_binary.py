@@ -34,7 +34,7 @@ def patch(bin_path, translation_path, out_path, out_font_dir=None):
 
     for i, (start, orig_len, orig_text) in enumerate(strings):
         text = translations.get(i)
-        if not text or text == orig_text:
+        if not text:
             continue
 
         try:
@@ -44,6 +44,11 @@ def patch(bin_path, translation_path, out_path, out_font_dir=None):
 
         if len(encoded) > orig_len:
             too_long.append((i, orig_text, text, len(encoded), orig_len))
+            continue
+
+        # 譯文和原文相同時，韓文維持原字；繁中會把同一漢字改畫成自訂字形，位元組不同才寫入。
+        padded = encoded + b'\x00' * (orig_len - len(encoded))
+        if padded == bytes(data[start:start + orig_len]):
             continue
 
         data[start:start+len(encoded)] = encoded
