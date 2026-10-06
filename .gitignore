@@ -6,7 +6,7 @@ output/
 __pycache__/
 tools/__pycache__/
 texture/
-texture원본/
+output_cht/
 
 # 원본 게임에서 추출한 바이너리 (실행에 필요하지만 저작권 있는 원본 게임 데이터.
 # original_files/는 tools/extract_original_text_all.py 등으로, 폰트 4종과
@@ -26,3 +26,27 @@ gdi_out/track03.bin
 gdi_out/track02.raw
 gdi_out/track01.bin
 gdi_out/Sakura Taisen 4 - Koi Seyo Otome v1.003 (2002)(Sega)(JP)\[\!\]\[2M1, 2M3, 2M5, 2MM1\].gdi
+*.gdi
+
+output_cht/ADVDATA/LIPSYNC1.LIP
+output_cht/ADVDATA/LIPSYNC2.LIP
+output_cht/ADVDATA/LIPSYNC3.LIP
+output_cht/ADVDATA/LIPSYNC4.LIP
+output_cht/ADVDATA/SCRIPT/S0120.SBX
+output_cht/ADVDATA/SCRIPT/S0130.SBX
+output_cht/ADVDATA/SCRIPT/S0140.SBX
+output_cht/ADVDATA/SCRIPT/S0210.SBX
+output_cht/ADVDATA/SCRIPT/S0220.SBX
+output_cht/ADVDATA/SCRIPT/S0230.SBX
+output_cht/ADVDATA/SCRIPT/S0240.SBX
+output_cht/ADVDATA/SCRIPT/S0310.SBX
+output_cht/ADVDATA/SCRIPT/S0320.SBX
+output_cht/ADVDATA/SCRIPT/S0330.SBX
+output_cht/ADVDATA/SCRIPT/S0340.SBX
+output_cht/ADVDATA/SCRIPT/S0410.SBX
+output_cht/ADVDATA/SCRIPT/S0510.SBX
+output_cht/SKFONT.CG
+output_cht/SKFONT2.CG
+output_cht/SKFONT3.CG
+output_cht/SKFONT4.CG
+*.LIP
