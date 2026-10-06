@@ -1,7 +1,7 @@
 """
 櫻花大戰 4 繁體中文翻譯一併套用工具。
 一次執行會把已譯好的對白（SBX/SBN）+ LIPSYNC +（若有範本）1ST_READ.BIN
-等寫進磁碟結構，並產生含繁體缺字的 SKFONT.CG~4.CG。
+等寫進磁碟結構，並把譯文漢字全部用微軟正黑體畫進 SKFONT.CG~4.CG。
 
 使用法（專案根目錄）:
   python translate_all_cht.py
@@ -92,9 +92,14 @@ def main():
     font_path, font_index = find_cht_font()
     fontmap.set_map_file(CHT_MAP_FILE)
     fontmap.set_font_path(font_path, font_index)
+    fontmap.set_remap_all_cjk(True)
+    # 漢字編碼改走自訂字形，每次整包重編以免舊 cht_map 只含 SJIS 缺字。
+    if os.path.exists(CHT_MAP_FILE):
+        os.remove(CHT_MAP_FILE)
     print(f"(空白處理: {args.spacing})")
     print(f"(字型: {font_path} index={font_index})")
-    print(f"(字碼表: {CHT_MAP_FILE})\n")
+    print(f"(字碼表: {CHT_MAP_FILE}；譯文漢字全部改用正黑體自訂字形)")
+    print(f"(漢字格上限 {fontmap.MAX_KANJI_TILES}，系統字保留 {len(fontmap.BLOCKED_TILES)} 格)\n")
 
     all_skipped = []
 
@@ -282,7 +287,7 @@ def main():
     num_chars = len(cht_map)
     if num_chars > 0:
         patch_skfont(TOOLS_DIR, OUTPUT_DIR, cht_map)
-        print(f"  缺字 {num_chars} 個 -> output_cht/ 產生 SKFONT.CG, SKFONT2.CG, SKFONT3.CG, SKFONT4.CG")
+        print(f"  自訂字形 {num_chars} 個 -> output_cht/ 產生 SKFONT.CG, SKFONT2.CG, SKFONT3.CG, SKFONT4.CG")
     else:
         print("  沒有需要自訂字形的字，未產生字型。")
 

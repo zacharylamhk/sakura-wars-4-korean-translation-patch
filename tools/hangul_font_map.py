@@ -33,6 +33,26 @@ def set_font_path(path, ttc_index=0):
     FONT_PATH = path
     FONT_TTC_INDEX = ttc_index
 
+
+# False: 한글·cp932에 없는 글자만 빈 한자 타일을 빌린다 (한국어 기본).
+# True:  번역문에 나온 CJK 한자도 전부 빌려서 지정 폰트로 다시 그린다
+#        (번체: 원본 일본 고딕과 正黑體가 섞이지 않게).
+REMAP_ALL_CJK = False
+
+
+def set_remap_all_cjk(enabled):
+    global REMAP_ALL_CJK
+    REMAP_ALL_CJK = bool(enabled)
+
+
+def _is_cjk_ideograph(ch):
+    o = ord(ch)
+    return (
+        0x3400 <= o <= 0x4DBF  # CJK Ext A
+        or 0x4E00 <= o <= 0x9FFF  # CJK Unified
+        or 0xF900 <= o <= 0xFAFF  # Compatibility
+    )
+
 KANJI_START_TILE = 492          # 0x28998 / 338 (모든 폰트 파일 공통)
 KANJI_BASE_KUTEN = 1410         # 0x889F 의 ku-ten 순번
 MAX_KANJI_TILES = 2996          # 3488(전체) - 492
@@ -119,12 +139,15 @@ BLOCKED_TILES = set(t for t in (_kanji_to_tile(c) for c in BLOCKED_KANJI) if t i
 
 def _needs_custom_tile(ch):
     """한글·공백 타일 외에, Shift-JIS(cp932)로 넣을 수 없는 글자
-    (번체 전용 한자 등)도 빈 한자 타일을 빌려야 한다."""
+    (번체 전용 한자 등)도 빈 한자 타일을 빌려야 한다.
+    REMAP_ALL_CJK 이면 공용 한자도 원본 일본 타일 대신 지정 폰트로 그린다."""
     if ('가' <= ch <= '힣') or ('ㄱ' <= ch <= 'ㆎ'):
         return True
     if ch == ' ' and SPACE_MODE == 'tile':
         return True
     if ch == BLANK_PAD_CHAR:
+        return True
+    if REMAP_ALL_CJK and _is_cjk_ideograph(ch):
         return True
     try:
         ch.encode('cp932')
