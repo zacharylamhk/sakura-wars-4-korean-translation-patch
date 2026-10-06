@@ -24,7 +24,7 @@ null-종료 문자열의 앞부분인데, 그 앞부분 시작 지점을 가리�
 import sys, os
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
-from hangul_font_map import load_map, save_map, assign_tiles, encode_mixed
+from hangul_font_map import load_map, save_map, assign_tiles, encode_mixed, _encode_mixed_raw
 from translation_io import parse_translation_file
 
 BUDGET = 24
@@ -73,12 +73,15 @@ def patch(esm_path, orig_list_path, translation_path, out_path):
         search_from = pos + 1  # 같은 문구가 반복돼도 다음번엔 그다음 위치부터
 
         new_text = translations.get(idx)
-        if not new_text or new_text == orig_text:
+        if not new_text:
             continue
+        same_text = new_text == orig_text
         try:
-            encoded = encode_mixed(new_text, hangul_map)
+            encoded = _encode_mixed_raw(new_text, hangul_map) if same_text else encode_mixed(new_text, hangul_map)
         except UnicodeEncodeError as e:
             raise SystemExit(f"[{idx}]번 인코딩 실패: {e}\n  텍스트: {new_text!r}")
+        if same_text and (encoded == orig_bytes or len(encoded) != len(orig_bytes)):
+            continue
         if len(encoded) > BUDGET:
             too_long.append((idx, orig_text, new_text, len(encoded)))
             continue

@@ -35,7 +35,7 @@ def rebuild_repoint(data, chunks, translations_by_chunk, hangul_map):
         원래 이런 간접 참조를 위한 구조라서 이 값만 바꾸면 되고, 다른
         무엇도 옮길 필요가 없다. 1ST_READ.BIN 리포인팅과 같은 원리이되
         절대 포인터를 찾을 필요 없이 포맷 자체의 표를 그대로 쓴다."""
-    from hangul_font_map import encode_mixed
+    from hangul_font_map import encode_mixed, _encode_mixed_raw
 
     out = bytearray(data)
     appended = bytearray()
@@ -52,13 +52,15 @@ def rebuild_repoint(data, chunks, translations_by_chunk, hangul_map):
             if not text:
                 continue
             pos, blen = c['positions'][i]
-            orig_text = bytes(data[pos:pos+blen]).decode('shift_jis', errors='replace')
-            if text == orig_text:
-                continue
+            orig_bytes = bytes(data[pos:pos+blen])
+            orig_text = orig_bytes.decode('shift_jis', errors='replace')
+            same_text = text == orig_text
             try:
-                encoded = encode_mixed(text, hangul_map)
+                encoded = _encode_mixed_raw(text, hangul_map) if same_text else encode_mixed(text, hangul_map)
             except UnicodeEncodeError:
                 encode_failed.append((c['offset'], i, orig_text, text))
+                continue
+            if encoded == orig_bytes or (same_text and len(encoded) != blen):
                 continue
 
             if len(encoded) <= blen:

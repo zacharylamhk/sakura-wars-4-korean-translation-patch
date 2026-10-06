@@ -36,7 +36,7 @@ _sub_ 로 시작하는 줄은 대사가 아니므로 절대 수정하지 마세�
 """
 import struct, sys, re, os
 from prs_decompress import DecompressPrs
-from hangul_font_map import load_map, save_map, assign_tiles, encode_mixed
+from hangul_font_map import load_map, save_map, assign_tiles, encode_mixed, _encode_mixed_raw
 from translation_io import parse_translation_file, has_japanese
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -97,10 +97,11 @@ def rebuild(src_sbx_path, translation_path, out_sbx_path, out_font_dir=None):
         if text is None or text == '':
             continue
         orig_decoded = orig_raw[i].decode('shift_jis', errors='replace')
-        if text == orig_decoded:
-            continue
+        # 譯文同原文一樣（米田司令 這類）時，繁中仍要把漢字改成自訂字形。
+        # 只接受等長改寫，避免把換行或空白一併改掉。韓文路徑編碼結果與原文相同，會在下面跳過。
+        same_text = text == orig_decoded
         try:
-            encoded = encode_mixed(text, hangul_map)
+            encoded = _encode_mixed_raw(text, hangul_map) if same_text else encode_mixed(text, hangul_map)
         except UnicodeEncodeError as e:
             raise SystemExit(
                 f"[{i:04d}]번 줄 인코딩 실패: {e}\n"
@@ -108,6 +109,8 @@ def rebuild(src_sbx_path, translation_path, out_sbx_path, out_font_dir=None):
                 f"  한글(Shift-JIS 미지원)이 포함된 것으로 보입니다.\n"
                 f"  현재는 폰트 매핑 미해결로 한글을 넣을 수 없습니다. 영어/일본어만 가능합니다."
             )
+        if encoded == orig_raw[i] or (same_text and len(encoded) != len(orig_raw[i])):
+            continue
         translated_indices.add(i)
         final_raw[i] = encoded
         pos = positions[i]

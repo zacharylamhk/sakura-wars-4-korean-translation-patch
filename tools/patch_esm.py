@@ -43,7 +43,7 @@ def patch(esm_path, translation_path, out_path, out_font_dir=None):
             if not is_real_text(t):
                 continue
             new_text = translations.get(idx)
-            if new_text and new_text != t:
+            if new_text:
                 chunk_trans[li] = new_text
             idx += 1
         if chunk_trans:

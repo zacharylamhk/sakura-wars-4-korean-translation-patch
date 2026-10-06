@@ -56,8 +56,11 @@ def patch(bin_path, translation_path, out_path, out_font_dir=None):
             f"수 있어 안전하게 중단합니다. 원본 디스크에서 1ST_READ.BIN을 다시 "
             f"확인해서 넣어주세요.")
 
+    # 掃描要求至少 4 字，選項畫面的「音声」「戻る」只有 2 字，不會進範本。
+    short_ui = {'音声': '聲音', '戻る': '返回'}
+
     hangul_map = load_map()
-    for text in translations.values():
+    for text in list(translations.values()) + list(short_ui.values()):
         if text:
             assign_tiles(text, hangul_map)
     save_map(hangul_map)
@@ -69,7 +72,7 @@ def patch(bin_path, translation_path, out_path, out_font_dir=None):
 
     for i, (start, orig_len, orig_text) in enumerate(messages):
         text = translations.get(i)
-        if not text or text == orig_text:
+        if not text:
             continue
 
         try:
@@ -78,9 +81,13 @@ def patch(bin_path, translation_path, out_path, out_font_dir=None):
             raise SystemExit(f"[{i:03d}]번 인코딩 실패: {e}\n  텍스트: {text!r}")
 
         if len(encoded) <= orig_len:
-            # 원문 자리에 그대로 들어감 (제자리 교체)
-            data[start:start+len(encoded)] = encoded
-            data[start+len(encoded):start+orig_len] = b'\x00' * (orig_len - len(encoded))
+            # 訳文が原文と同じでも、漢字を自訂字形にするとバイトが変わる。
+            # その場合は書き込む。第の元タイルを他の字が上書きすると
+            # セーブ画面の「第」が別の漢字になる。
+            padded = encoded + b'\x00' * (orig_len - len(encoded))
+            if padded == bytes(data[start:start+orig_len]):
+                continue
+            data[start:start+orig_len] = padded
             applied_inplace += 1
         else:
             # 원문보다 길다 -> 포인터를 찾아서 새 위치로 리포인팅 시도
@@ -105,6 +112,19 @@ def patch(bin_path, translation_path, out_path, out_font_dir=None):
             applied_repoint += 1
 
     data.extend(appended)
+
+    for src, dst in short_ui.items():
+        src_b = src.encode('cp932')
+        dst_b = encode_mixed(dst, hangul_map)
+        if len(dst_b) != len(src_b):
+            raise SystemExit(f'短字串長度不同: {src} {len(src_b)} -> {dst} {len(dst_b)}')
+        idx = 0
+        while True:
+            i = data.find(src_b, idx)
+            if i < 0:
+                break
+            data[i:i+len(src_b)] = dst_b
+            idx = i + len(dst_b)
 
     with open(out_path, 'wb') as f:
         f.write(data)

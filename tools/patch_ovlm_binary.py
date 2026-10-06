@@ -17,7 +17,7 @@ import sys, os, struct
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 from extract_ovlm_binary import find_real_strings
-from hangul_font_map import load_map, save_map, assign_tiles, encode_mixed, encode_mixed_fit, patch_skfont
+from hangul_font_map import load_map, save_map, assign_tiles, encode_mixed, encode_mixed_fit, patch_skfont, _encode_mixed_raw
 from translation_io import parse_translation_file
 
 BASE_ADDR = 0x8c6386c0
@@ -53,13 +53,16 @@ def patch(bin_path, translation_path, out_path, out_font_dir=None):
 
     for i, (start, orig_len, orig_text) in enumerate(strings):
         text = translations.get(i)
-        if not text or text == orig_text:
+        if not text:
             continue
+        same_text = text == orig_text
 
         try:
-            encoded = encode_mixed(text, hangul_map)
+            encoded = _encode_mixed_raw(text, hangul_map) if same_text else encode_mixed(text, hangul_map)
         except UnicodeEncodeError as e:
             raise SystemExit(f"[{i:04d}]번 인코딩 실패: {e}\n  텍스트: {text!r}")
+        if same_text and (encoded == orig_text.encode('cp932') or len(encoded) != orig_len):
+            continue
 
         if len(encoded) <= orig_len:
             data[start:start+len(encoded)] = encoded

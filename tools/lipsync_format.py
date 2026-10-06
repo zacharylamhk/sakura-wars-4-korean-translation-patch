@@ -26,6 +26,27 @@
 import struct
 from extract_lipsync_text import scan_real_text
 
+def _sjis_run_before(data, start, limit):
+    """start 前面、上一個 NUL 之後黏住的 Shift-JIS。
+
+    掃描器最少要 2 字才當對白，所以「さくら……」這類會變成
+    前面剩下「さ」、正文只剩「くら……」。遊戲仍由 NUL 之後開始畫，
+    玩家就會看到「さ櫻」。"""
+    p = start
+    while p - 2 >= limit:
+        b0, b1 = data[p - 2], data[p - 1]
+        lead = (0x81 <= b0 <= 0x9F) or (0xE0 <= b0 <= 0xFC)
+        trail = (0x40 <= b1 <= 0x7E) or (0x80 <= b1 <= 0xFC)
+        if not (lead and trail):
+            break
+        try:
+            bytes((b0, b1)).decode('cp932')
+        except Exception:
+            break
+        p -= 2
+    return p
+
+
 def split_pre(pre):
     """pre 안에서 '진짜 텍스트' 부분과 그 앞의 이진 데이터(추정: 립싱크
     프레임/타이밍)를 갈라낸다. 텍스트 런이 pre 끝까지 정확히 이어질 때만
@@ -149,7 +170,7 @@ def rebuild_repoint(data, parsed, translations, hangul_map):
         타이밍 데이터로 추정)는 절대 건드리지 않는다.
 
     translations: {row_k: 번역문 전체 문자열}."""
-    from hangul_font_map import encode_mixed, encode_mixed_fit
+    from hangul_font_map import encode_mixed, encode_mixed_fit, _encode_mixed_raw
 
     out = bytearray(data)
     table_start = parsed['table_start']
@@ -168,20 +189,37 @@ def rebuild_repoint(data, parsed, translations, hangul_map):
             continue
         pre, orig_text_bytes, post = parsed['entries'][k]
         orig_full = full_original_text(pre, orig_text_bytes)
-        if text == orig_full:
-            continue
         text_start = off_b[k] - 1
         blen = len(orig_text_bytes)
 
         binary_prefix, pre_text = split_pre(pre)
         pre_text_start = (starts[k] + len(binary_prefix)) if pre_text else text_start
         combined_space = (text_start - pre_text_start) + blen
+        same_text = text == orig_full
 
         try:
-            encoded = encode_mixed_fit(text, hangul_map, combined_space)
+            encoded = _encode_mixed_raw(text, hangul_map) if same_text else encode_mixed_fit(text, hangul_map, combined_space)
         except UnicodeEncodeError:
             encode_failed.append((k, orig_full, text))
             continue
+
+        orig_visible = (bytes(pre[len(binary_prefix):]) if pre_text else b'') + orig_text_bytes
+        if same_text and (encoded == orig_visible or len(encoded) != len(orig_visible)):
+            continue
+
+        # 正文前面黏住、掃描器沒收進譯文的字。假名會直接露在譯文前面，要一起蓋掉。
+        # 漢字（天地神明的「天」）譯文沒包含它，只改成自訂字形，避免把詞頭削掉。
+        front = _sjis_run_before(out, pre_text_start, starts[k])
+        if front < pre_text_start:
+            front_text = bytes(out[front:pre_text_start]).decode('cp932')
+            kana = all('\u3041' <= ch <= '\u3096' or '\u30a1' <= ch <= '\u30fa' or ch == '\u30fc' for ch in front_text)
+            if kana:
+                combined_space += pre_text_start - front
+                pre_text_start = front
+            else:
+                front_encoded = _encode_mixed_raw(front_text, hangul_map)
+                if len(front_encoded) == pre_text_start - front:
+                    out[front:pre_text_start] = front_encoded
 
         if len(encoded) > combined_space:
             too_long.append((k, orig_full, text, len(encoded), combined_space))
