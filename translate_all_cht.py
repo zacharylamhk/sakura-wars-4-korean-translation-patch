@@ -1,7 +1,8 @@
 """
 櫻花大戰 4 繁體中文翻譯一併套用工具。
 一次執行會把已譯好的對白（SBX/SBN）+ LIPSYNC +（若有範本）1ST_READ.BIN
-等寫進磁碟結構，並把譯文漢字全部用微軟正黑體畫進 SKFONT.CG~4.CG。
+等寫進磁碟結構，並把譯文漢字全部用源樣圓體
+（tools/GenSenRounded2TC-M.otf）畫進 SKFONT.CG~4.CG。
 
 使用法（專案根目錄）:
   python translate_all_cht.py
@@ -55,22 +56,18 @@ MOVECATCH_FILES = [
 
 
 def find_cht_font():
-    windir = os.environ.get('WINDIR', r'C:\Windows')
-    fonts = os.path.join(windir, 'Fonts')
-    for name, idx in (
-        ('msjh.ttc', 0),
-        ('msjhl.ttc', 0),
-        ('mingliu.ttc', 0),
-        ('kaiu.ttf', 0),
-    ):
-        path = os.path.join(fonts, name)
-        if os.path.exists(path):
-            return path, idx
-    fallback = os.path.join(TOOLS_DIR, 'NotoSansKR-subset.ttf')
-    if os.path.exists(fallback):
-        print('警告: 找不到微軟正黑體/細明體，改用韓文字型，部份繁體字可能缺字')
-        return fallback, 0
-    raise SystemExit('找不到可用的繁體中文字型（需要 C:\\Windows\\Fonts\\msjh.ttc）')
+    name = 'GenSenRounded2TC-M.otf'
+    candidates = [
+        os.path.join(TOOLS_DIR, name),
+        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Microsoft', 'Windows', 'Fonts', name),
+        os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts', name),
+    ]
+    for path in candidates:
+        if path and os.path.exists(path):
+            return path, 0
+    raise SystemExit(
+        '找不到源樣圓體 GenSenRounded2TC-M.otf。'
+        '請放到 tools/GenSenRounded2TC-M.otf')
 
 
 def find_original(base_no_ext):
@@ -98,7 +95,7 @@ def main():
         os.remove(CHT_MAP_FILE)
     print(f"(空白處理: {args.spacing})")
     print(f"(字型: {font_path} index={font_index})")
-    print(f"(字碼表: {CHT_MAP_FILE}；譯文漢字全部改用正黑體自訂字形)")
+    print(f"(字碼表: {CHT_MAP_FILE}；譯文漢字全部用源樣圓體畫成自訂字形)")
     print(f"(漢字格上限 {fontmap.MAX_KANJI_TILES}，系統字保留 {len(fontmap.BLOCKED_TILES)} 格)\n")
 
     all_skipped = []
@@ -139,6 +136,8 @@ def main():
     for esm_name in ESM_NAMES:
         template_path = os.path.join(TEMPLATES_DIR, 'SLG_ESM', esm_name + '.txt')
         src_esm = os.path.join(ORIGINAL_DIR, 'SLG_ESM', esm_name + '.ESM')
+        if not os.path.exists(src_esm):
+            src_esm = os.path.join(ORIGINAL_DIR, 'SLG', ESM_GROUP[esm_name], esm_name + '.ESM')
         if not (os.path.exists(template_path) and os.path.exists(src_esm)):
             continue
         out_esm = os.path.join(OUTPUT_DIR, 'SLG', ESM_GROUP[esm_name], esm_name + '.ESM')

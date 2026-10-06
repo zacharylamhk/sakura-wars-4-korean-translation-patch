@@ -27,12 +27,18 @@ def build_template(esm_path, out_txt_path, out_manifest_path):
     return idx
 
 if __name__ == '__main__':
+    import sys
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8', errors='replace')
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    out_dir = os.path.join(base, 'esm_templates')
     total = 0
     for n in range(1, 6):
-        esm = f'SMAP0{n}.ESM'
-        out = f'esm_templates/SMAP0{n}.txt'
-        manifest = f'esm_templates/SMAP0{n}.manifest.json'
+        esm = os.path.join(base, 'original_files', 'SLG', f'G0{n}', f'SMAP0{n}.ESM')
+        out = os.path.join(out_dir, f'SMAP0{n}.txt')
+        manifest = os.path.join(out_dir, f'SMAP0{n}.manifest.json')
         count = build_template(esm, out, manifest)
-        print(f"{esm}: 실제 대사 {count}줄 -> {out}")
+        print(f"SMAP0{n}.ESM: 實際對白 {count} 行 -> {out}")
         total += count
-    print("총합:", total)
+    print("合計:", total)

@@ -1,5 +1,5 @@
 """SMAPnn.ESM 파일 안의 CTPA/ASCR 텍스트 청크를 시그니처 스캔으로 찾아 추출"""
-import struct
+import os, struct
 
 def try_parse_chunk(data, off, sig):
     """off 위치에 sig(CTPA 또는 ASCR)로 시작하는 유효한 텍스트 청크가 있는지 검증 후 파싱"""
@@ -71,13 +71,36 @@ def scan_esm(path):
     chunks.sort(key=lambda c: c['offset'])
     return chunks
 
-if __name__ == '__main__':
-    import sys
-    chunks = scan_esm(sys.argv[1])
-    print(f"유효 청크 {len(chunks)}개 발견")
+def default_esm_paths():
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return [
+        os.path.join(base, 'original_files', 'SLG', f'G0{n}', f'SMAP0{n}.ESM')
+        for n in range(1, 6)
+    ]
+
+
+def report(path):
+    chunks = scan_esm(path)
     total_lines = sum(c['num_lines'] for c in chunks)
-    print(f"총 텍스트 줄 수: {total_lines}")
+    print(f"{path}")
+    print(f"  有效區塊 {len(chunks)} 個，文字 {total_lines} 行")
     for c in chunks[:5]:
         print(f"  offset={c['offset']} sig={c['sig']} num_lines={c['num_lines']}")
         for t in c['texts'][:3]:
             print(f"    {t!r}")
+
+
+if __name__ == '__main__':
+    import sys
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8', errors='replace')
+    paths = sys.argv[1:] or default_esm_paths()
+    missing = [p for p in paths if not os.path.exists(p)]
+    if missing and len(sys.argv) > 1:
+        raise SystemExit('找不到 ESM：\n' + '\n'.join(missing))
+    for path in paths:
+        if not os.path.exists(path):
+            print(f"找不到: {path}")
+            continue
+        report(path)
